@@ -1,42 +1,28 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+:root{
+  --charcoal:#2F2F2F;
+  --sky:#87B8D5;
+  --gold:#F2C14E;
+  --bg:#f7f8fa;
+  --border:#e5e7eb;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
+html, body, #root { height: 100%; }
+body { margin:0; background: var(--bg); color: var(--charcoal); font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+.container { max-width: 760px; margin: 40px auto; padding: 24px; background: #fff; border:1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.05); }
+.h1 { font-size: 28px; margin: 0 0 12px; }
+.sub { color:#555; margin: 0 0 24px; }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
+.label { display:block; font-weight:600; margin-bottom:8px; }
+.textarea { width:100%; padding:12px; border:1px solid var(--border); border-radius:10px; resize:vertical; min-height:160px; }
+.row { display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+.btn { border:0; padding:10px 14px; border-radius:10px; cursor:pointer; background: var(--sky); color:#0b2a37; font-weight:600; }
+.btn[disabled] { opacity:0.6; cursor:not-allowed; }
+.btn-secondary { background:#f3f4f6; color:#111; border:1px solid var(--border); }
+.error { color:#b00020; font-weight:600; }
+.counter { margin-left:auto; color:#666; font-size:13px; }
 
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
+.card { margin-top:20px; border:1px solid var(--border); border-radius:12px; padding:16px; background:#fff; }
+.card h3 { margin-top:0; }
+.fade-in { animation: fade 240ms ease-out; }
+@keyframes fade { from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:none; } }

@@ -3,11 +3,48 @@ import { openai } from "../openai.config.js";
 
 const router = Router();
 
-// Helper to enforce a timeout per request
-function withTimeout(ms) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), ms);
-  return { signal: controller.signal, cancel: () => clearTimeout(id) };
+// Helper prompt
+function buildPrompt(rawNotes) {
+  return [
+    "You are an assistant that turns raw meeting notes into clean, actionable summaries.",
+    "",
+    "Formatting rules:",
+    "- Use three sections with these exact headings: Key Points, Decisions, Action Items.",
+    "- Keep bullets short and concrete. Prefer verbs. No filler.",
+    "- If a section is empty, still include the heading and write 'None.'",
+    "",
+    "Constraints:",
+    "- Do not invent facts.",
+    "- Keep to 120–200 words total unless the input is extremely long.",
+    "",
+    "Raw notes:",
+    rawNotes,
+  ].join("\n");
+}
+
+// Retry + timeout helpers
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function withTimeout(ms, errMsg = "Request timed out") {
+  await sleep(ms);
+  const e = new Error(errMsg);
+  e.name = "TimeoutError";
+  throw e;
+}
+
+async function withRetries(fn, { retries = 2, baseDelay = 800 } = {}) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = String(err?.message || err);
+      const isRate = (err?.status === 429) || /rate|429/i.test(msg);
+      if (attempt >= retries || !isRate) throw err;
+      await sleep(baseDelay * Math.pow(2, attempt)); // 800ms, 1600ms
+      attempt += 1;
+    }
+  }
 }
 
 // POST /api/notes/ai
@@ -18,30 +55,24 @@ router.post("/notes/ai", async (req, res) => {
       return res.status(400).json({ error: "Missing or invalid 'prompt'." });
     }
 
-    // 20s guard so requests can't hang
-    const { signal, cancel } = withTimeout(20_000);
+    const messages = [
+      { role: "system", content: "You produce clean, structured notes for busy teams." },
+      { role: "user", content: buildPrompt(prompt) },
+    ];
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You produce clean, structured notes. Use short sentences and clear headings.",
-        },
-        {
-          role: "user",
-          content:
-            `Summarize the following into 3 sections: Key Points, Decisions, Action Items.\n\nContent:\n${prompt}`,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 400,
-      // OpenAI SDK does not take AbortController directly; kept for symmetry if using fetch.
-      // If you later switch to fetch, pass { signal } there.
-    });
-
-    cancel();
+    const completion = await withRetries(
+      () =>
+        Promise.race([
+          openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages,
+            temperature: 0.2,
+            max_tokens: 500,
+          }),
+          withTimeout(20_000),
+        ]),
+      { retries: 2, baseDelay: 800 }
+    );
 
     const text = completion?.choices?.[0]?.message?.content ?? "";
     if (!text) {
@@ -50,15 +81,14 @@ router.post("/notes/ai", async (req, res) => {
 
     return res.json({ text });
   } catch (err) {
-    // Rate limits or timeouts
-    const msg = (err && err.message) || "Unknown error";
-    const status =
-      msg.includes("rate") || msg.includes("429") ? 429 :
-      msg.includes("aborted") || msg.includes("AbortError") ? 504 :
-      500;
-
+    const msg = String(err?.message || "Unknown error");
+    const code = err?.status || err?.code;
+    const isRate = code === 429 || /rate|429/i.test(msg);
+    const isTimeout = err?.name === "TimeoutError" || /aborted|AbortError|timeout/i.test(msg);
+    const status = isRate ? 429 : isTimeout ? 504 : 500;
     return res.status(status).json({ error: msg });
   }
 });
 
 export default router;
+

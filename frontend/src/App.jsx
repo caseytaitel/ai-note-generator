@@ -6,15 +6,33 @@ export default function App() {
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [cooldownUntil, setCooldownUntil] = useState(0);
 
   async function handleGenerate() {
     setError("");
+  
+    // Basic validation
     if (!input.trim()) {
       setError("Enter some notes to summarize.");
       return;
     }
+    // Optional: sanity cap for very long inputs (adjust as you like)
+    if (input.length > 4000) {
+      setError("Input is too long. Please shorten your notes.");
+      return;
+    }
+  
+    // Cooldown: 2 seconds between clicks
+    const now = Date.now();
+    if (now < cooldownUntil) {
+      const waitMs = Math.ceil((cooldownUntil - now) / 100) / 10;
+      setError(`Please wait ${waitMs}s before trying again.`);
+      return;
+    }
+  
     try {
       setLoading(true);
+      setCooldownUntil(Date.now() + 2000); // 2s cooldown
       const { text } = await generateNoteAI(input);
       setOutput(text);
     } catch (e) {
@@ -22,7 +40,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }
+  }  
 
   return (
     <div style={{ maxWidth: 720, margin: "40px auto", fontFamily: "system-ui" }}>

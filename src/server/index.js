@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import aiRouter from "./routes/ai.js";
 
 // Create server + configure to handle JSON
@@ -15,8 +16,16 @@ app.use(cors({
 // Health check
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// Limit: 20 requests per IP per 1 minute
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Mount routes
-app.use("/api", aiRouter);
+app.use("/api", aiLimiter, aiRouter);
 
 // Start server
 const PORT = process.env.PORT || 3001;
